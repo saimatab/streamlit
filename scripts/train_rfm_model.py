@@ -1,0 +1,32 @@
+import pandas as pd
+from datetime import datetime
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+# Load dataset
+print("Loading dataset...")
+data = pd.read_excel(r"C:\Users\s.tabassum\Documents\customer_segmentation_chatbot\data\OnlineRetail.xlsx")
+data = data.dropna(subset=["CustomerID"])
+data = data[data["Quantity"] > 0]
+data["TotalPrice"] = data["Quantity"] * data["UnitPrice"]
+
+# RFM calculation
+snapshot_date = max(data["InvoiceDate"]) + pd.Timedelta(days=1)
+rfm = data.groupby("CustomerID").agg({
+    "InvoiceDate": lambda x: (snapshot_date - x.max()).days,
+    "InvoiceNo": "count",
+    "TotalPrice": "sum"
+})
+rfm.rename(columns={"InvoiceDate": "Recency", "InvoiceNo": "Frequency", "TotalPrice": "Monetary"}, inplace=True)
+
+# Scaling for clustering
+scaler = StandardScaler()
+rfm_scaled = scaler.fit_transform(rfm)
+
+# KMeans clustering
+kmeans = KMeans(n_clusters=4, random_state=42)
+rfm["Cluster"] = kmeans.fit_predict(rfm_scaled)
+
+# Save clustered data
+rfm.to_csv("data/rfm_with_clusters.csv", index=True)
+print("RFM model trained and saved to data/rfm_with_clusters.csv")
